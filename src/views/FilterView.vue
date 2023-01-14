@@ -8,7 +8,7 @@
         <p></p>
       </vue-csv-map>
     </vue-csv-import>
-    <h3>Order por:</h3>
+    <h4>Ordenar por:</h4>
     <select v-model="sortBy">
       <option v-for="field in fields" :key="field">{{ field }}</option>
     </select>
@@ -18,29 +18,41 @@
     </select>
     <filter-component
       :title="'Palabras obligatorias'"
-      :removeCallback="removeFilterWord"
+      :removeCallback="() => {}"
       :addCallback="addFilterWord"
     ></filter-component>
     <filter-component
       :title="'Palabras excluyentes'"
-      :removeCallback="removeExcludeWord"
+      :removeCallback="() => {}"
       :addCallback="addExcludeWord"
     ></filter-component>
     <div class="filter-by-status-container">
-      <h3>Solo grupos con publicacion libre:</h3>
+      <h4>Solo grupos con publicacion libre:</h4>
       <input type="checkbox" v-model="filterByStatusCheck" />
     </div>
+    <div>
+      <h4>Minimo de miembros</h4>
+      <input type="number" v-model="minMembers" />
+    </div>
+    <button @click.prevent="() => this.excludesIndex = []" style="margin-top: 20px; margin-right: 20px">Limpiar eliminaciones manuales</button>
+    <button @click.prevent="() => this.export()" style="margin-top: 20px">Exportar</button>
     <table>
       <th v-for="field in fields" :key="field">
         {{ field }}
       </th>
+      <th>
+        Acciones
+      </th>
       <tbody>
         <tr
-          v-for="field in exclude(filterByStatus(sorted)) ?? []"
+          v-for="field in getRows() ?? []"
           v-bind:key="field"
         >
           <td v-for="column in fields" :key="column">
-            {{ field[column] }}
+            {{ field[column] || 0 }} 
+          </td>
+          <td>
+            <button @click.prevent="() => addExcludeGroupId(field['Group ID'])">Eliminar</button>
           </td>
         </tr>
       </tbody>
@@ -60,6 +72,7 @@ import FilterComponent from "../components/FilterComponent.vue";
 import sort from "../utils/sort";
 import arrMatch from "../utils/arrMatch";
 import fields from "../config/fields";
+import exportToCsv from "../utils/export";
 
 export default {
   name: "FilterView",
@@ -68,11 +81,13 @@ export default {
       csv: null,
       filterWords: [],
       excludeWords: [],
+      excludesIndex: [],
       word: "",
       sortBy: "Group ID",
       sortOrder: "desc",
       fields,
       filterByStatusCheck: false,
+      minMembers: 0
     };
   },
   methods: {
@@ -82,18 +97,30 @@ export default {
     addExcludeWord(words) {
       this.excludeWords = words;
     },
+    addExcludeGroupId(id) {
+      this.excludesIndex.push(id);
+    },
     exclude(rows) {
       return rows?.filter(
-        (filter) =>
-          !filter.Name.toLowerCase().includes("venta") &&
-          !filter.Name.toLowerCase().includes("compra") &&
-          arrMatch(this.filterWords, filter) &&
-          arrMatch(this.excludeWords, filter, true)
+        (row) =>
+          !row.Name.toLowerCase().includes("venta") &&
+          !row.Name.toLowerCase().includes("compra") &&
+          arrMatch(this.filterWords, row) &&
+          arrMatch(this.excludesIndex, row, "Group ID", true) &&
+          arrMatch(this.excludeWords, row, "Name", true) &&
+          (this.isValidToPublish(row) || !this.filterByStatusCheck) &&
+          row["Members"] > this.minMembers
       );
     },
-    filterByStatus(rows) {
-      return rows.filter((row) => row["Post Status"] == "FREE");
+    getRows(){
+      return this.exclude(this.sorted);
     },
+    export(){
+      exportToCsv(this.getRows())
+    },
+    isValidToPublish(row){
+      return row["Post Status"] == "FREE" && row["Privacy"] == "PUBLIC" && (!row["Admins"] || row["Admins"] == 0);
+    }
   },
   computed: {
     withoutHeaderCsv() {
@@ -125,7 +152,7 @@ tr {
 th,
 td {
   padding: 5px 15px;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 th {
@@ -138,8 +165,8 @@ table {
 
 select {
   margin: 10px 20px;
-  padding: 8px 15px;
-  font-size: 23px;
+  padding: 6px 10px;
+  font-size: 18px;
 }
 
 input[name="csv"] {
@@ -149,9 +176,9 @@ input[name="csv"] {
 }
 
 input[type="checkbox"] {
-  width: 30px;
-  height: 30px;
-  margin-top: 11px;
+  width: 20px;
+  height: 20px;
+  margin-top: 20px;
 }
 
 label[for="csv"] {
@@ -170,8 +197,8 @@ label[for="csv"] {
   );
   font-weight: bold;
   color: white;
-  font-size: 23px;
-  padding: 20px 10px;
+  font-size: 18px;
+  padding: 12px 5px;
 }
 
 .filter-by-status-container {

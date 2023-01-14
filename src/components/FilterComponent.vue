@@ -1,5 +1,5 @@
 <template>
-  <h3>{{ title }}</h3>
+  <h4>{{ title }}</h4>
   <div>
     <input type="text" v-model="word" />
     <button @click="add">Añadir</button>
@@ -38,8 +38,8 @@ export default {
 <style scoped>
 input {
   display: block;
-  padding: 8px 13px;
-  font-size: 20px;
+  padding: 4px 7px;
+  font-size: 16px;
   border-radius: 10px;
 }
 div {
